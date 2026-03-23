@@ -95,5 +95,5 @@ def add_note():
     return jsonify({"success": False, "message": "Missing data"})
 
 if __name__ == "__main__":
-    os.makedirs("templates", exist_ok=True)
+    # This part is only for local testing
     app.run(host="0.0.0.0", port=5000, debug=True)
