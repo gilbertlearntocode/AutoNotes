@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UE Notes Helper</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        input, select, button, textarea { padding: 10px; margin: 8px 0; width: 100%; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { background: #007bff; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #e9ffe9; border: 2px solid #28a745; border-radius: 8px; white-space: pre-wrap; font-size: 16px; }
+        .copy-btn { background: #28a745; margin-top: 10px; }
+        .options { margin: 15px 0; }
+        .option-btn { background: #6c757d; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 UE Notes Helper</h1>
+        
+        <form id="mainForm">
+            <input type="text" id="ue_number" placeholder="Enter UE Number" required>
+            <input type="text" id="keyword" placeholder="Enter Keyword (e.g. Fake, User, HC, VS)" required list="keywords">
+            <datalist id="keywords">
+                {% for kw in notes.keys() %}<option value="{{ kw }}">{{ kw }}</option>{% endfor %}
+            </datalist>
+            <button type="submit">Get Note</button>
+        </form>
+
+        <div id="result" class="result" style="display: none;"></div>
+
+        <hr>
+        <h3>Add New Note</h3>
+        <input type="text" id="add_keyword" placeholder="Keyword">
+        <textarea id="add_note" rows="4" placeholder="Paste your full note here"></textarea>
+        <button onclick="addNote()">Add Note</button>
+    </div>
+
+    <script>
+        const form = document.getElementById('mainForm');
+        const resultDiv = document.getElementById('result');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const ue = document.getElementById('ue_number').value.trim();
+            const keyword = document.getElementById('keyword').value.trim();
+
+            if (!ue || !keyword) return;
+
+            const res = await fetch('/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({ ue_number: ue, keyword: keyword })
+            });
+            
+            const data = await res.json();
+
+            resultDiv.style.display = 'block';
+
+            if (data.success) {
+                resultDiv.innerHTML = `
+                    <strong>Copied Note for UE: ${data.ue} | ${data.keyword}</strong><br><br>
+                    ${data.note.replace(/\n/g, '<br>')}
+                    <button class="copy-btn" onclick="copyToClipboard('${data.note.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">📋 Copy to Clipboard</button>
+                `;
+            } else if (data.multiple) {
+                let html = `<strong>Multiple notes found for "${data.keyword}". Choose one:</strong><div class="options">`;
+                data.options.forEach((opt, i) => {
+                    html += `<button class="option-btn" onclick="chooseOption(${i}, '${data.ue}', '${data.keyword}')">${i+1}. ${opt}</button>`;
+                });
+                html += `</div>`;
+                resultDiv.innerHTML = html;
+            }
+        });
+
+        function chooseOption(idx, ue, keyword) {
+            fetch('/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({ ue_number: ue, keyword: keyword, choice: idx })
+            }).then(res => res.json()).then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <strong>Copied Note for UE: ${data.ue} | ${data.keyword}</strong><br><br>
+                        ${data.note.replace(/\n/g, '<br>')}
+                        <button class="copy-btn" onclick="copyToClipboard('${data.note.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">📋 Copy to Clipboard</button>
+                    `;
+                }
+            });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text.replace(/\\n/g, '\n')).then(() => {
+                alert("✅ Copied to clipboard!");
+            });
+        }
+
+        async function addNote() {
+            const keyword = document.getElementById('add_keyword').value.trim();
+            const note = document.getElementById('add_note').value.trim();
+            
+            if (!keyword || !note) {
+                alert("Please fill both keyword and note");
+                return;
+            }
+
+            const res = await fetch('/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({ keyword: keyword, note_text: note })
+            });
+            
+            const data = await res.json();
+            alert(data.message);
+            if (data.success) location.reload();
+        }
+    </script>
+</body>
+</html>
